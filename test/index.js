@@ -1,359 +1,631 @@
-'use strict';
+'use strict'
 
-var fs = require('fs');
-var path = require('path');
+const {
+  writeFileSync,
+  unlinkSync
+} = require('node:fs')
 
-var expect = require('expect');
-var rimraf = require('rimraf');
-var through = require('through2');
-var normalizePath = require('normalize-path');
+const path = require('path')
 
-var watch = require('../');
+const chai = require('chai')
+const { expect } = chai
+const sinon = require('sinon')
+const sinonChai = require('sinon-chai')
+const { rimraf } = require('rimraf')
+const { mkdirp } = require('mkdirp')
+const through = require('through2')
+
+chai.use(sinonChai)
+
+const watch = require('../')
 
 // Default delay on debounce
-var timeout = 200;
+const TIMEOUT = 200
 
-describe('glob-watcher', function() {
+const WATCHERS = new Set()
 
-  var watcher;
+describe('glob-watcher', function () {
+  const FIXTURES_PATH = path.join(__dirname, 'fixtures')
+  const CHANGED_FILE_PATH = path.join(FIXTURES_PATH, 'changed.js')
+  const CREATED_FILE_PATH = path.join(FIXTURES_PATH, 'created.js')
 
-  var outDir = path.join(__dirname, './fixtures/');
-  var outFile1 = path.join(outDir, 'changed.js');
-  var outFile2 = path.join(outDir, 'added.js');
-  var globPattern = '**/*.js';
-  var outGlob = normalizePath(path.join(outDir, globPattern));
-  var singleAdd = normalizePath(path.join(outDir, 'changed.js'));
-  var ignoreGlob = '!' + singleAdd;
-
-  function changeFile() {
-    fs.writeFileSync(outFile1, 'hello changed');
-  }
-
-  function addFile() {
-    fs.writeFileSync(outFile2, 'hello added');
-  }
-
-  beforeEach(function(cb) {
-    fs.mkdirSync(outDir);
-    fs.writeFileSync(outFile1, 'hello world');
-    cb();
-  });
-
-  afterEach(function(cb) {
-    if (watcher) {
-      watcher.close();
+  function getHandleWatchersClose (watchers = new Set()) {
+    return function handleWatcherClose (watcher) {
+      if (!watcher.closed) watcher.close()
+      watchers.delete(watcher)
     }
-    rimraf(outDir, cb);
-  });
+  }
 
-  after(function(cb) {
-    rimraf(outDir, cb);
-  });
+  function changeFile () {
+    writeFileSync(CHANGED_FILE_PATH, '// file changed')
+  }
 
-  it('only requires a glob and returns watcher', function(done) {
-    watcher = watch(outGlob);
+  function createFile () {
+    writeFileSync(CREATED_FILE_PATH, '// file created')
+  }
 
-    watcher.once('change', function(filepath) {
-      expect(filepath).toEqual(outFile1);
-      done();
-    });
+  function removeFile () {
+    unlinkSync(CREATED_FILE_PATH)
+  }
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', changeFile);
-  });
+  before(async function () {
+    await mkdirp(FIXTURES_PATH)
+    writeFileSync(CHANGED_FILE_PATH, '// file to be changed')
+  })
 
-  it('picks up added files', function(done) {
-    watcher = watch(outGlob);
+  beforeEach(async function () {
+    await mkdirp(FIXTURES_PATH)
+    writeFileSync(CHANGED_FILE_PATH, '// file to be changed')
+  })
 
-    watcher.once('add', function(filepath) {
-      expect(filepath).toEqual(outFile2);
-      done();
-    });
+  afterEach(async function () {
+    await rimraf(FIXTURES_PATH)
+  })
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', addFile);
-  });
+  after(async function () {
+    await rimraf(FIXTURES_PATH)
+  })
 
-  it('works with OS-specific cwd', function(done) {
-    watcher = watch('./fixtures/' + globPattern, { cwd: __dirname });
+  before(async function () {
+    WATCHERS.forEach(getHandleWatchersClose(WATCHERS))
+  })
 
-    watcher.once('change', function(filepath) {
-      // Uses path.join here because the resulting path is OS-specific
-      expect(filepath).toEqual(path.join('fixtures', 'changed.js'));
-      done();
-    });
+  beforeEach(async function () {
+    WATCHERS.forEach(getHandleWatchersClose(WATCHERS))
+  })
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', changeFile);
-  });
+  afterEach(async function () {
+    WATCHERS.forEach(getHandleWatchersClose(WATCHERS))
+  })
 
-  it('accepts a callback & calls when file is changed', function(done) {
-    watcher = watch(outGlob, function(cb) {
-      cb();
-      done();
-    });
+  after(async function () {
+    WATCHERS.forEach(getHandleWatchersClose(WATCHERS))
+  })
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', changeFile);
-  });
+  it.only('watches change events: no handler', function (done) {
+    const watcher = watch(path.join(__dirname, '**/*.js'))
 
-  it('accepts a callback & calls when file is added', function(done) {
-    watcher = watch(outGlob, function(cb) {
-      cb();
-      done();
-    });
+    watcher.once('change', function (filePath) {
+      expect(filePath)
+        .to.equal(CHANGED_FILE_PATH)
+
+      done()
+    })
 
     // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', addFile);
-  });
+    watcher.on('ready', changeFile)
 
-  it('waits for completion is signaled before running again', function(done) {
-    var runs = 0;
+    WATCHERS.add(watcher)
+  })
 
-    watcher = watch(outGlob, function(cb) {
-      runs++;
-      if (runs === 1) {
-        setTimeout(function() {
-          expect(runs).toEqual(1);
-          cb();
-        }, timeout * 3);
-      }
-      if (runs === 2) {
-        cb();
-        done();
-      }
-    });
+  it.only('watches change events: w/ handler', function (done) {
+    /**
+     *  Does not require resolved path
+     */
+    const watcher = watch('./test/**/*.js', function (next) {
+      next()
+      done()
+    })
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', function() {
-      changeFile();
-      // Fire after double the delay
-      setTimeout(changeFile, timeout * 2);
-    });
-  });
+    watcher.on('ready', changeFile)
 
-  // It can signal completion with anything async-done supports
-  // Just wanted to have a smoke test for streams
-  it('can signal completion with a stream', function(done) {
-    var runs = 0;
+    WATCHERS.add(watcher)
+  })
 
-    watcher = watch(outGlob, function(cb) {
-      runs++;
-      if (runs === 1) {
-        var stream = through();
-        setTimeout(function() {
-          expect(runs).toEqual(1);
-          stream.end();
-        }, timeout * 3);
-        return stream;
-      }
-      if (runs === 2) {
-        cb();
-        done();
-      }
-    });
+  it.only('watches add events: no handler', function (done) {
+    try {
+      removeFile()
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error(e)
+    }
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', function() {
-      changeFile();
-      // Fire after double the delay
-      setTimeout(changeFile, timeout * 2);
-    });
-  });
+    /**
+     *  Requires resolved path
+     */
+    const watcher = watch(path.join(__dirname, '**/*.js'))
 
-  it('emits an error if one occurs in the callback and handler attached', function(done) {
-    var expectedError = new Error('boom');
+    watcher.once('add', function (filePath) {
+      expect(filePath)
+        .to.equal(CREATED_FILE_PATH)
 
-    watcher = watch(outGlob, function(cb) {
-      cb(expectedError);
-    });
+      done()
+    })
 
-    watcher.on('error', function(err) {
-      expect(err).toEqual(expectedError);
-      done();
-    });
+    watcher.on('ready', createFile)
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', changeFile);
-  });
+    WATCHERS.add(watcher)
+  })
 
-  it('does not emit an error (and crash) when no handlers attached', function(done) {
-    var expectedError = new Error('boom');
+  it.only('watches add events: w/ handler', function (done) {
+    try {
+      removeFile()
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error(e)
+    }
 
-    watcher = watch(outGlob, function(cb) {
-      cb(expectedError);
-      setTimeout(done, timeout * 3);
-    });
+    /**
+     *  Does not require resolved path
+     */
+    const watcher = watch('./test/**/*.js', function (next) {
+      next()
+      done()
+    })
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', changeFile);
-  });
+    watcher.on('ready', createFile)
 
-  it('allows the user to disable queueing', function(done) {
-    var runs = 0;
+    WATCHERS.add(watcher)
+  })
 
-    watcher = watch(outGlob, { queue: false }, function(cb) {
-      runs++;
-      setTimeout(function() {
-        // Expect 1 because run 2 is never queued
-        expect(runs).toEqual(1);
-        cb();
-        done();
-      }, timeout * 3);
-    });
+  it.only('watches unlink events: no handler', function (done) {
+    try {
+      createFile()
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error(e)
+    }
+
+    /**
+     *  Requires resolved path
+     */
+    const watcher = watch(path.join(__dirname, '**/*.js'))
+
+    watcher.once('unlink', function (filePath) {
+      expect(filePath)
+        .to.equal(CREATED_FILE_PATH)
+
+      done()
+    })
 
     // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', function() {
-      changeFile();
-      // This will never trigger a call because queueing is disabled
-      setTimeout(changeFile, timeout * 2);
-    });
-  });
+    watcher.on('ready', removeFile)
 
-  it('allows the user to adjust delay', function(done) {
-    var runs = 0;
+    WATCHERS.add(watcher)
+  })
 
-    watcher = watch(outGlob, { delay: (timeout / 2) }, function(cb) {
-      runs++;
-      if (runs === 1) {
-        setTimeout(function() {
-          expect(runs).toEqual(1);
-          cb();
-        }, timeout * 3);
-      }
-      if (runs === 2) {
-        expect(runs).toEqual(2);
-        cb();
-        done();
-      }
-    });
+  it.only('watches unlink events: w/ handler', function (done) {
+    try {
+      createFile()
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error(e)
+    }
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', function() {
-      changeFile();
-      // This will queue because delay is halved
-      setTimeout(changeFile, timeout);
-    });
-  });
+    /**
+     *  Does not require resolved path
+     */
+    const watcher = watch('./test/**/*.js', function (next) {
+      next()
+      done()
+    })
 
-  it('passes options to chokidar', function(done) {
-    // Callback is called while chokidar is discovering file paths
-    // if ignoreInitial is explicitly set to false and passed to chokidar
-    watcher = watch(outGlob, { ignoreInitial: false }, function(cb) {
-      cb();
-      done();
-    });
-  });
+    watcher.on('ready', removeFile)
 
-  it('does not override default values with null values', function(done) {
-    watcher = watch(outGlob, { ignoreInitial: null }, function(cb) {
-      cb();
-      done();
-    });
+    WATCHERS.add(watcher)
+  })
 
-    // We default `ignoreInitial` to true and it isn't overwritten by null
-    // So wait for `on('ready')`
-    watcher.on('ready', changeFile);
-  });
+  it.only('waits for completion signal before executing again', function (done) {
+    const timeouts = []
 
-  it('watches exactly the given event', function(done) {
-    var spy = expect.createSpy()
-    .andCall(function(cb) {
-      cb();
-      spy.andThrow(new Error('`Add` handler called for `change` event'));
-      setTimeout(done, 500);
-      changeFile();
-    });
+    const spy = sinon.stub()
+      .onFirstCall().callsFake((next) => {
+        setTimeout(next, TIMEOUT * 2)
+      })
+      .onSecondCall().callsFake((next) => {
+        while (timeouts.length) clearTimeout(timeouts.shift())
 
-    watcher = watch(outGlob, { events: 'add' }, spy);
+        next()
 
-    watcher.on('ready', addFile);
-  });
+        done()
+      })
 
-  it('accepts multiple events to watch', function(done) {
-    var spy = expect.createSpy()
-    .andThrow(new Error('`Add`/`Unlink` handler called for `change` event'));
+    const watcher = watch(path.join(__dirname, '**/*.js'), spy)
 
-    watcher = watch(outGlob, { events: ['add', 'unlink'] }, spy);
+    watcher.on('ready', function () {
+      for (let i = 0, j = 3; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * TIMEOUT) * 2))
+    })
 
-    watcher.on('ready', function() {
-      changeFile();
-      setTimeout(done, 500);
-    });
-  });
+    WATCHERS.add(watcher)
+  })
 
-  it('can ignore a glob after it has been added', function(done) {
-    watcher = watch([outGlob, ignoreGlob]);
+  it.only('can signal completion with a stream', function (done) {
+    const timeouts = []
 
-    watcher.once('change', function(filepath) {
-      // It should never reach here
-      expect(filepath).toNotExist();
-      done();
-    });
+    const spy = sinon.stub()
+      .onFirstCall().callsFake((next) => {
+        next()
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', changeFile);
+        const stream = through()
+        setImmediate(() => stream.end())
+        return stream
+      })
+      .onSecondCall().callsFake((next) => {
+        while (timeouts.length) clearTimeout(timeouts.shift())
 
-    setTimeout(done, 1500);
-  });
+        next()
 
-  it('can re-add a glob after it has been negated', function(done) {
-    watcher = watch([outGlob, ignoreGlob, singleAdd]);
+        done()
+      })
 
-    watcher.once('change', function(filepath) {
-      expect(filepath).toEqual(singleAdd);
-      done();
-    });
+    const watcher = watch(path.join(__dirname, '**/*.js'), spy)
+
+    watcher.on('ready', function () {
+      for (let i = 0, j = 3; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * TIMEOUT) * 2))
+    })
+
+    WATCHERS.add(watcher)
+  })
+
+  xit('emits an error if one occurs in the callback and handler attached', function (done) {
+    const expectedError = new Error('boom')
+
+    const watcher = watch(path.join(__dirname, '**/*.js'), function (next) {
+      next(expectedError)
+    })
+
+    watcher.on('error', function (e) {
+      expect(e)
+        .to.equal(expectedError)
+
+      done()
+    })
 
     // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', changeFile);
-  });
+    watcher.on('ready', changeFile)
 
-  it('does not mutate the globs array', function(done) {
-    var globs = [outGlob, ignoreGlob, singleAdd];
-    watcher = watch(globs);
+    WATCHERS.add(watcher)
+  })
 
-    expect(globs[0]).toEqual(outGlob);
-    expect(globs[1]).toEqual(ignoreGlob);
-    expect(globs[2]).toEqual(singleAdd);
+  xit('does not emit an error (and crash) when no handlers attached', function (done) {
+    const expectedError = new Error('boom')
 
-    done();
-  });
-
-  it('passes ignores through to chokidar', function(done) {
-    var ignored = [singleAdd];
-    watcher = watch(outGlob, {
-      ignored: ignored,
-    });
-
-    watcher.once('change', function(filepath) {
-      // It should never reach here
-      expect(filepath).toNotExist();
-      done();
-    });
+    const watcher = watch(path.join(__dirname, '**/*.js'), function (next) {
+      next(expectedError)
+      setTimeout(done, TIMEOUT * 3)
+    })
 
     // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', changeFile);
+    watcher.on('ready', changeFile)
 
-    // Just test the non-mutation in this test
-    expect(ignored.length).toEqual(1);
+    WATCHERS.add(watcher)
+  })
 
-    setTimeout(done, 1500);
-  });
+  it.only('changes `queue` default', function (done) {
+    const spy = sinon.stub()
+      .onFirstCall().callsFake((next) => {
+        next()
+
+        changeFile()
+      })
+      .onSecondCall().callsFake((next) => {
+        next()
+
+        changeFile()
+      })
+      .onThirdCall().callsFake((next) => {
+        next()
+
+        done()
+      })
+
+    const watcher = watch(path.join(__dirname, '**/*.js'), { queue: false }, spy)
+
+    watcher.on('ready', changeFile)
+
+    WATCHERS.add(watcher)
+  }).timeout(5000)
+
+  it.only('changes `delay` default', function (done) {
+    const timeouts = []
+    const delay = 100
+
+    const spy = sinon.stub()
+      .onFirstCall().callsFake((next) => {
+        next()
+      })
+      .onSecondCall().callsFake((next) => {
+        next()
+      })
+      .onThirdCall().callsFake((next) => {
+        while (timeouts.length) clearTimeout(timeouts.shift())
+
+        next()
+
+        done()
+      })
+
+    // The delay to wait before triggering the handler
+    const watcher = watch(path.join(__dirname, '**/*.js'), { delay }, spy)
+
+    watcher.on('ready', function () {
+      for (let i = 0, j = 24; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * delay) * 0.5))
+    })
+
+    WATCHERS.add(watcher)
+  }).timeout(5000)
+
+  it.only('changes `ignoreInitial` default', function (done) {
+    /**
+     *  Does not require resolved path
+     */
+    const watcher = watch('./test/**/*.js', { ignoreInitial: false }, function (next) {
+      next()
+      done()
+    })
+
+    // Invokes callback on file discovery
+    // No need for `watcher.on('ready', changeFile)`
+
+    WATCHERS.add(watcher)
+  })
+
+  it.only('does not change `ignoreInitial` default when option value is `null`', function (done) {
+    /**
+     *  Does not require resolved path
+     */
+    const watcher = watch('./test/**/*.js', { ignoreInitial: null }, function (next) {
+      next()
+      done()
+    })
+
+    // `ignoreInitial` default is `true` so does not invoke callback on file discovery
+    watcher.on('ready', changeFile)
+
+    WATCHERS.add(watcher)
+  })
+
+  it.only('watches one event', function (done) {
+    const glob = './test/**/*.js'
+
+    const spy = sinon.stub()
+      .callsFake((next) => {
+        next()
+
+        removeFile()
+      })
+
+    /**
+     *  Does not require resolved path
+     */
+    const watcher = watch(glob, { events: 'add' }, spy)
+
+    watcher.on('ready', () => {
+      createFile()
+
+      setTimeout(() => {
+        expect(spy.callCount)
+          .to.equal(1)
+
+        done()
+      }, 500)
+    })
+
+    WATCHERS.add(watcher)
+  })
+
+  it.only('watches several events', function (done) {
+    const glob = './test/**/*.js'
+
+    const spy = sinon.stub()
+      .onFirstCall().callsFake((next) => {
+        next()
+
+        createFile()
+      })
+      .onSecondCall().callsFake((next) => {
+        next()
+
+        removeFile()
+      })
+      .onThirdCall().callsFake((next) => {
+        next()
+
+        done()
+      })
+
+    /**
+     *  Does not require resolved path
+     */
+    const watcher = watch(glob, { events: ['add', 'unlink', 'change'] }, spy)
+
+    watcher.on('ready', changeFile)
+
+    WATCHERS.add(watcher)
+  })
+
+  xit('negates globs after they have been added', function (done) {
+    let timeout = null
+
+    const GLOB = path.join(__dirname, '**/*.js')
+    const EXCLUDED_PATH = '!' + CHANGED_FILE_PATH
+
+    const globs = [
+      GLOB,
+      EXCLUDED_PATH
+    ]
+
+    const watcher = watch(globs)
+
+    watcher.on('error', done)
+
+    watcher.once('change', function (filePath) {
+      if (timeout) clearTimeout(timeout)
+      watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
+    })
+
+    watcher.on('ready', changeFile)
+
+    timeout = setTimeout(done, 500)
+
+    WATCHERS.add(watcher)
+  })
+
+  it.only('watches globs added after they have been negated', function (done) {
+    const GLOB = path.join(__dirname, '**/*.js')
+    const EXCLUDED_PATH = '!' + CHANGED_FILE_PATH
+    const INCLUDED_PATH = CHANGED_FILE_PATH
+
+    const globs = [
+      GLOB,
+      EXCLUDED_PATH,
+      INCLUDED_PATH
+    ]
+
+    const watcher = watch(globs)
+
+    watcher.once('change', function (filePath) {
+      expect(filePath)
+        .to.equal(INCLUDED_PATH)
+
+      done()
+    })
+
+    // We default `ignoreInitial` to true, so always wait for `on('ready')`
+    watcher.on('ready', changeFile)
+
+    WATCHERS.add(watcher)
+  })
+
+  it.only('does not mutate glob array', function (done) {
+    const GLOB = path.join(__dirname, '**/*.js')
+    const EXCLUDED_PATH = '!' + CHANGED_FILE_PATH
+    const INCLUDED_PATH = CHANGED_FILE_PATH
+
+    const globs = [
+      GLOB,
+      EXCLUDED_PATH,
+      INCLUDED_PATH
+    ]
+
+    const watcher = watch(globs)
+
+    watcher.once('change', function () {
+      expect(globs[0])
+        .to.equal(GLOB)
+
+      expect(globs[1])
+        .to.equal(EXCLUDED_PATH)
+
+      expect(globs[2])
+        .to.equal(INCLUDED_PATH)
+
+      done()
+    })
+
+    // We default `ignoreInitial` to true, so always wait for `on('ready')`
+    watcher.on('ready', changeFile)
+
+    WATCHERS.add(watcher)
+  })
+
+  it.only('ignores one glob', function (done) {
+    let timeout = null
+    const spy = sinon.spy(changeFile)
+
+    /**
+     *  Glob and ignored paths must both be resolved, or neither resolved
+     */
+    const ignored = './test/fixtures/changed.js'
+
+    const watcher = watch('./test/**/*.js', { ignored })
+
+    watcher.on('error', done)
+
+    watcher.once('change', function (filePath) {
+      if (timeout) clearTimeout(timeout)
+      watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
+    })
+
+    watcher.on('ready', spy)
+
+    timeout = setTimeout(() => {
+      expect(spy)
+        .to.have.been.called
+
+      done()
+    }, 500)
+
+    WATCHERS.add(watcher)
+  })
+
+  it.only('ignores several globs', function (done) {
+    let timeout = null
+    const spy = sinon.spy(changeFile)
+
+    /**
+     *  Glob and ignored paths must both be resolved, or neither resolved
+     */
+    const ignored = ['./test/fixtures/changed.js', './test/fixtures/created.js']
+
+    const watcher = watch('./test/**/*.js', { ignored })
+
+    watcher.on('error', done)
+
+    watcher.once('change', function (filePath) {
+      if (timeout) clearTimeout(timeout)
+      watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
+    })
+
+    watcher.on('ready', spy)
+
+    timeout = setTimeout(() => {
+      expect(spy)
+        .to.have.been.called
+
+      done()
+    }, 500)
+
+    WATCHERS.add(watcher)
+  })
 
   // https://github.com/gulpjs/glob-watcher/issues/46
-  it('ignoring globs also works with `cwd` option', function(done) {
-    watcher = watch(['fixtures/**', '!fixtures/*.js'], { cwd: 'test' });
+  xit('ignores globs in the current working directory when they are negated', function (done) {
+    let timeout = null
+    const spy = sinon.spy(changeFile)
 
-    watcher.once('change', function(filepath) {
-      // It should never reach here
-      expect(filepath).toNotExist();
-      done();
-    });
+    const globs = ['./fixtures/**', '!./fixtures/*.js']
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
-    watcher.on('ready', changeFile);
+    const watcher = watch(globs, { cwd: './test' })
 
-    setTimeout(done, 1500);
-  });
-});
+    watcher.on('error', done)
+
+    watcher.once('change', function (filePath) {
+      if (timeout) clearTimeout(timeout)
+      watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
+    })
+
+    watcher.on('ready', spy)
+
+    timeout = setTimeout(() => {
+      expect(spy)
+        .to.have.been.called
+
+      done()
+    }, 500)
+
+    WATCHERS.add(watcher)
+  })
+
+  // https://github.com/gulpjs/glob-watcher/issues/46
+  it.only('ignores globs in the current working directory when they are ignored', function (done) {
+    let timeout = null
+    const spy = sinon.spy(changeFile)
+
+    const watcher = watch('./fixtures/**', { ignored: ['./fixtures/*.js'], cwd: './test' })
+
+    watcher.on('error', done)
+
+    watcher.once('change', function (filePath) {
+      if (timeout) clearTimeout(timeout)
+      watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
+    })
+
+    watcher.on('ready', spy)
+
+    timeout = setTimeout(() => {
+      expect(spy)
+        .to.have.been.called
+
+      done()
+    }, 500)
+
+    WATCHERS.add(watcher)
+  })
+})

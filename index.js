@@ -1,149 +1,149 @@
-'use strict';
+'use strict'
 
-var chokidar = require('chokidar');
-var debounce = require('just-debounce');
-var asyncDone = require('async-done');
-var defaults = require('object.defaults/immutable');
-var isNegatedGlob = require('is-negated-glob');
-var anymatch = require('anymatch');
-var normalize = require('normalize-path');
+const chokidar = require('chokidar')
+const debounce = require('just-debounce')
+const asyncDone = require('async-done')
+const defaults = require('object.defaults/immutable')
+const isNegatedGlob = require('is-negated-glob')
+const anymatch = require('anymatch')
+const normalize = require('normalize-path')
 
-var defaultOpts = {
+const defaultOpts = {
   delay: 200,
   events: ['add', 'change', 'unlink'],
   ignored: [],
   ignoreInitial: true,
-  queue: true,
-};
+  queue: true
+}
 
-function listenerCount(ee, evtName) {
+function listenerCount (ee, evtName) {
   if (typeof ee.listenerCount === 'function') {
-    return ee.listenerCount(evtName);
+    return ee.listenerCount(evtName)
   }
 
-  return ee.listeners(evtName).length;
+  return ee.listeners(evtName).length
 }
 
-function hasErrorListener(ee) {
-  return listenerCount(ee, 'error') !== 0;
+function hasErrorListener (ee) {
+  return listenerCount(ee, 'error') !== 0
 }
 
-function exists(val) {
-  return val != null;
+function exists (val) {
+  return val != null
 }
 
-function watch(glob, options, cb) {
+function watch (glob, options, cb) {
   if (typeof options === 'function') {
-    cb = options;
-    options = {};
+    cb = options
+    options = {}
   }
 
-  var opt = defaults(options, defaultOpts);
+  const opt = defaults(options, defaultOpts)
 
   if (!Array.isArray(opt.events)) {
-    opt.events = [opt.events];
+    opt.events = [opt.events]
   }
 
   if (Array.isArray(glob)) {
     // We slice so we don't mutate the passed globs array
-    glob = glob.slice();
+    glob = glob.slice()
   } else {
-    glob = [glob];
+    glob = [glob]
   }
 
-  var queued = false;
-  var running = false;
+  let queued = false
+  let running = false
 
   // These use sparse arrays to keep track of the index in the
   // original globs array
-  var positives = new Array(glob.length);
-  var negatives = new Array(glob.length);
+  const positives = new Array(glob.length)
+  const negatives = new Array(glob.length)
 
   // Reverse the glob here so we don't end up with a positive
   // and negative glob in position 0 after a reverse
-  glob.reverse().forEach(sortGlobs);
+  glob.reverse().forEach(sortGlobs)
 
-  function sortGlobs(globString, index) {
-    var result = isNegatedGlob(globString);
+  function sortGlobs (globString, index) {
+    const result = isNegatedGlob(globString)
     if (result.negated) {
-      negatives[index] = result.pattern;
+      negatives[index] = result.pattern
     } else {
-      positives[index] = result.pattern;
+      positives[index] = result.pattern
     }
   }
 
-  var toWatch = positives.filter(exists);
+  const toWatch = positives.filter(exists)
 
-  function joinCwd(glob) {
+  function joinCwd (glob) {
     if (glob && opt.cwd) {
-      return normalize(opt.cwd + '/' + glob);
+      return normalize(opt.cwd + '/' + glob)
     }
 
-    return glob;
+    return glob
   }
 
   // We only do add our custom `ignored` if there are some negative globs
   // TODO: I'm not sure how to test this
   if (negatives.some(exists)) {
-    var normalizedPositives = positives.map(joinCwd);
-    var normalizedNegatives = negatives.map(joinCwd);
-    var shouldBeIgnored = function(path) {
-      var positiveMatch = anymatch(normalizedPositives, path, true);
-      var negativeMatch = anymatch(normalizedNegatives, path, true);
+    const normalizedPositives = positives.map(joinCwd)
+    const normalizedNegatives = negatives.map(joinCwd)
+    const shouldBeIgnored = function (path) {
+      const positiveMatch = anymatch(normalizedPositives, path, true)
+      const negativeMatch = anymatch(normalizedNegatives, path, true)
       // If negativeMatch is -1, that means it was never negated
       if (negativeMatch === -1) {
-        return false;
+        return false
       }
 
       // If the negative is "less than" the positive, that means
       // it came later in the glob array before we reversed them
-      return negativeMatch < positiveMatch;
-    };
+      return negativeMatch < positiveMatch
+    }
 
-    opt.ignored = [].concat(opt.ignored, shouldBeIgnored);
+    opt.ignored = [].concat(opt.ignored, shouldBeIgnored)
   }
-  var watcher = chokidar.watch(toWatch, opt);
+  const watcher = chokidar.watch(toWatch, opt)
 
-  function runComplete(err) {
-    running = false;
+  function runComplete (err) {
+    running = false
 
     if (err && hasErrorListener(watcher)) {
-      watcher.emit('error', err);
+      watcher.emit('error', err)
     }
 
     // If we have a run queued, start onChange again
     if (queued) {
-      queued = false;
-      onChange();
+      queued = false
+      onChange()
     }
   }
 
-  function onChange() {
+  function onChange () {
     if (running) {
       if (opt.queue) {
-        queued = true;
+        queued = true
       }
-      return;
+      return
     }
 
-    running = true;
-    asyncDone(cb, runComplete);
+    running = true
+    asyncDone(cb, runComplete)
   }
 
-  var fn;
+  let fn
   if (typeof cb === 'function') {
-    fn = debounce(onChange, opt.delay);
+    fn = debounce(onChange, opt.delay)
   }
 
-  function watchEvent(eventName) {
-    watcher.on(eventName, fn);
+  function watchEvent (eventName) {
+    watcher.on(eventName, fn)
   }
 
   if (fn) {
-    opt.events.forEach(watchEvent);
+    opt.events.forEach(watchEvent)
   }
 
-  return watcher;
+  return watcher
 }
 
-module.exports = watch;
+module.exports = watch
