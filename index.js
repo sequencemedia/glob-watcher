@@ -10,7 +10,7 @@ const normalize = require('normalize-path')
 const { join } = require('path')
 const { nanoid } = require('nanoid')
 
-const defaultOpts = {
+const DEFAULT_OPTIONS = {
   delay: 200,
   events: ['add', 'change', 'unlink'],
   ignored: [],
@@ -38,7 +38,7 @@ function watch (glob, options, cb) {
     options = {}
   }
 
-  const opt = defaults(options, defaultOpts)
+  const opt = defaults(options, DEFAULT_OPTIONS)
 
   if (!Array.isArray(opt.events)) {
     opt.events = [opt.events]
