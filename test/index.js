@@ -253,7 +253,7 @@ describe('glob-watcher', () => {
     WATCHERS.add(watcher)
   })
 
-  it.only('emits an error (w/ handler)', (done) => {
+  it('emits an error (w/ handler)', (done) => {
     const error = new Error()
 
     const watcher = watch(path.join(__dirname, '**/*.js'), (next) => {
@@ -272,7 +272,7 @@ describe('glob-watcher', () => {
     WATCHERS.add(watcher)
   })
 
-  it.only('does not emit an error (no handler)', (done) => {
+  it('does not emit an error (no handler)', (done) => {
     const error = new Error()
 
     const watcher = watch(path.join(__dirname, '**/*.js'), (next) => {
