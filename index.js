@@ -38,10 +38,10 @@ function watch (glob, options, cb) {
     options = {}
   }
 
-  const opt = defaults(options, DEFAULT_OPTIONS)
+  const opts = defaults(options, DEFAULT_OPTIONS)
 
-  if (!Array.isArray(opt.events)) {
-    opt.events = [opt.events]
+  if (!Array.isArray(opts.events)) {
+    opts.events = [opts.events]
   }
 
   if (Array.isArray(glob)) {
@@ -75,8 +75,8 @@ function watch (glob, options, cb) {
   const toWatch = positives.filter(Boolean)
 
   function joinCwd (glob) {
-    if (opt.cwd) {
-      return join(normalize(opt.cwd), normalize(glob))
+    if (opts.cwd) {
+      return join(normalize(opts.cwd), normalize(glob))
     }
 
     return normalize(glob)
@@ -117,10 +117,10 @@ function watch (glob, options, cb) {
       return negativeMatch < positiveMatch
     }
 
-    opt.ignored = [].concat(opt.ignored, ignorePath)
+    opts.ignored = [].concat(opts.ignored, ignorePath)
   }
 
-  const watcher = chokidar.watch(toWatch, opt)
+  const watcher = chokidar.watch(toWatch, opts)
 
   function runComplete (err) {
     running = false
@@ -138,7 +138,7 @@ function watch (glob, options, cb) {
 
   function onChange () {
     if (running) {
-      if (opt.queue) {
+      if (opts.queue) {
         queued = true
       }
       return
@@ -150,7 +150,7 @@ function watch (glob, options, cb) {
 
   let fn
   if (typeof cb === 'function') {
-    fn = debounce(onChange, opt.delay)
+    fn = debounce(onChange, opts.delay)
   }
 
   function watchEvent (eventName) {
@@ -158,7 +158,7 @@ function watch (glob, options, cb) {
   }
 
   if (fn) {
-    opt.events.forEach(watchEvent)
+    opts.events.forEach(watchEvent)
   }
 
   return watcher
