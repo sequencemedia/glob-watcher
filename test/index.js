@@ -24,7 +24,7 @@ const TIMEOUT = 200
 
 const WATCHERS = new Set()
 
-describe('glob-watcher', function () {
+describe('glob-watcher', () => {
   const FIXTURES_PATH = path.join(__dirname, 'fixtures')
   const CHANGED_FILE_PATH = path.join(FIXTURES_PATH, 'changed.js')
   const CREATED_FILE_PATH = path.join(FIXTURES_PATH, 'created.js')
@@ -48,44 +48,44 @@ describe('glob-watcher', function () {
     unlinkSync(CREATED_FILE_PATH)
   }
 
-  before(async function () {
+  before(async () => {
     await mkdirp(FIXTURES_PATH)
     writeFileSync(CHANGED_FILE_PATH, '// file to be changed')
   })
 
-  beforeEach(async function () {
+  beforeEach(async () => {
     await mkdirp(FIXTURES_PATH)
     writeFileSync(CHANGED_FILE_PATH, '// file to be changed')
   })
 
-  afterEach(async function () {
+  afterEach(async () => {
     await rimraf(FIXTURES_PATH)
   })
 
-  after(async function () {
+  after(async () => {
     await rimraf(FIXTURES_PATH)
   })
 
-  before(async function () {
+  before(async () => {
     WATCHERS.forEach(getHandleWatchersClose(WATCHERS))
   })
 
-  beforeEach(async function () {
+  beforeEach(async () => {
     WATCHERS.forEach(getHandleWatchersClose(WATCHERS))
   })
 
-  afterEach(async function () {
+  afterEach(async () => {
     WATCHERS.forEach(getHandleWatchersClose(WATCHERS))
   })
 
-  after(async function () {
+  after(async () => {
     WATCHERS.forEach(getHandleWatchersClose(WATCHERS))
   })
 
-  it.only('watches change events: no handler', function (done) {
+  it('watches change events: no handler', (done) => {
     const watcher = watch(path.join(__dirname, '**/*.js'))
 
-    watcher.once('change', function (filePath) {
+    watcher.once('change', (filePath) => {
       expect(filePath)
         .to.equal(CHANGED_FILE_PATH)
 
@@ -98,11 +98,11 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('watches change events: w/ handler', function (done) {
+  it('watches change events: w/ handler', (done) => {
     /**
      *  Does not require resolved path
      */
-    const watcher = watch('./test/**/*.js', function (next) {
+    const watcher = watch('./test/**/*.js', (next) => {
       next()
       done()
     })
@@ -112,7 +112,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('watches add events: no handler', function (done) {
+  it('watches add events: no handler', (done) => {
     try {
       removeFile()
     } catch (e) {
@@ -124,7 +124,7 @@ describe('glob-watcher', function () {
      */
     const watcher = watch(path.join(__dirname, '**/*.js'))
 
-    watcher.once('add', function (filePath) {
+    watcher.once('add', (filePath) => {
       expect(filePath)
         .to.equal(CREATED_FILE_PATH)
 
@@ -136,7 +136,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('watches add events: w/ handler', function (done) {
+  it('watches add events: w/ handler', (done) => {
     try {
       removeFile()
     } catch (e) {
@@ -146,7 +146,7 @@ describe('glob-watcher', function () {
     /**
      *  Does not require resolved path
      */
-    const watcher = watch('./test/**/*.js', function (next) {
+    const watcher = watch('./test/**/*.js', (next) => {
       next()
       done()
     })
@@ -156,7 +156,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('watches unlink events: no handler', function (done) {
+  it('watches unlink events: no handler', (done) => {
     try {
       createFile()
     } catch (e) {
@@ -168,7 +168,7 @@ describe('glob-watcher', function () {
      */
     const watcher = watch(path.join(__dirname, '**/*.js'))
 
-    watcher.once('unlink', function (filePath) {
+    watcher.once('unlink', (filePath) => {
       expect(filePath)
         .to.equal(CREATED_FILE_PATH)
 
@@ -181,7 +181,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('watches unlink events: w/ handler', function (done) {
+  it('watches unlink events: w/ handler', (done) => {
     try {
       createFile()
     } catch (e) {
@@ -191,7 +191,7 @@ describe('glob-watcher', function () {
     /**
      *  Does not require resolved path
      */
-    const watcher = watch('./test/**/*.js', function (next) {
+    const watcher = watch('./test/**/*.js', (next) => {
       next()
       done()
     })
@@ -201,7 +201,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('waits for completion signal before executing again', function (done) {
+  it('waits for completion signal before executing again', (done) => {
     const timeouts = []
 
     const spy = sinon.stub()
@@ -218,14 +218,14 @@ describe('glob-watcher', function () {
 
     const watcher = watch(path.join(__dirname, '**/*.js'), spy)
 
-    watcher.on('ready', function () {
+    watcher.on('ready', () => {
       for (let i = 0, j = 3; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * TIMEOUT) * 2))
     })
 
     WATCHERS.add(watcher)
   })
 
-  it.only('can signal completion with a stream', function (done) {
+  it('can signal completion with a stream', (done) => {
     const timeouts = []
 
     const spy = sinon.stub()
@@ -246,48 +246,47 @@ describe('glob-watcher', function () {
 
     const watcher = watch(path.join(__dirname, '**/*.js'), spy)
 
-    watcher.on('ready', function () {
+    watcher.on('ready', () => {
       for (let i = 0, j = 3; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * TIMEOUT) * 2))
     })
 
     WATCHERS.add(watcher)
   })
 
-  xit('emits an error if one occurs in the callback and handler attached', function (done) {
-    const expectedError = new Error('boom')
+  it.only('emits an error (w/ handler)', (done) => {
+    const error = new Error()
 
-    const watcher = watch(path.join(__dirname, '**/*.js'), function (next) {
-      next(expectedError)
+    const watcher = watch(path.join(__dirname, '**/*.js'), (next) => {
+      next(error)
     })
 
-    watcher.on('error', function (e) {
+    watcher.on('error', (e) => {
       expect(e)
-        .to.equal(expectedError)
+        .to.equal(error)
 
       done()
     })
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
     watcher.on('ready', changeFile)
 
     WATCHERS.add(watcher)
   })
 
-  xit('does not emit an error (and crash) when no handlers attached', function (done) {
-    const expectedError = new Error('boom')
+  it.only('does not emit an error (no handler)', (done) => {
+    const error = new Error()
 
-    const watcher = watch(path.join(__dirname, '**/*.js'), function (next) {
-      next(expectedError)
-      setTimeout(done, TIMEOUT * 3)
+    const watcher = watch(path.join(__dirname, '**/*.js'), (next) => {
+      next(error)
     })
 
-    // We default `ignoreInitial` to true, so always wait for `on('ready')`
+    setTimeout(done, 500)
+
     watcher.on('ready', changeFile)
 
     WATCHERS.add(watcher)
   })
 
-  it.only('changes `queue` default', function (done) {
+  it('changes `queue` default', (done) => {
     const spy = sinon.stub()
       .onFirstCall().callsFake((next) => {
         next()
@@ -312,7 +311,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   }).timeout(5000)
 
-  it.only('changes `delay` default', function (done) {
+  it('changes `delay` default', (done) => {
     const timeouts = []
     const delay = 100
 
@@ -334,18 +333,18 @@ describe('glob-watcher', function () {
     // The delay to wait before triggering the handler
     const watcher = watch(path.join(__dirname, '**/*.js'), { delay }, spy)
 
-    watcher.on('ready', function () {
+    watcher.on('ready', () => {
       for (let i = 0, j = 24; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * delay) * 0.5))
     })
 
     WATCHERS.add(watcher)
   }).timeout(5000)
 
-  it.only('changes `ignoreInitial` default', function (done) {
+  it('changes `ignoreInitial` default', (done) => {
     /**
      *  Does not require resolved path
      */
-    const watcher = watch('./test/**/*.js', { ignoreInitial: false }, function (next) {
+    const watcher = watch('./test/**/*.js', { ignoreInitial: false }, (next) => {
       next()
       done()
     })
@@ -356,11 +355,11 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('does not change `ignoreInitial` default when option value is `null`', function (done) {
+  it('does not change `ignoreInitial` default when option value is `null`', (done) => {
     /**
      *  Does not require resolved path
      */
-    const watcher = watch('./test/**/*.js', { ignoreInitial: null }, function (next) {
+    const watcher = watch('./test/**/*.js', { ignoreInitial: null }, (next) => {
       next()
       done()
     })
@@ -371,7 +370,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('watches one event', function (done) {
+  it('watches one event', (done) => {
     const glob = './test/**/*.js'
 
     const spy = sinon.stub()
@@ -400,7 +399,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('watches several events', function (done) {
+  it('watches several events', (done) => {
     const glob = './test/**/*.js'
 
     const spy = sinon.stub()
@@ -430,7 +429,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  xit('negates globs after they have been added', function (done) {
+  it('negates globs after they have been added', (done) => {
     let timeout = null
 
     const GLOB = path.join(__dirname, '**/*.js')
@@ -445,7 +444,7 @@ describe('glob-watcher', function () {
 
     watcher.on('error', done)
 
-    watcher.once('change', function (filePath) {
+    watcher.once('change', (filePath) => {
       if (timeout) clearTimeout(timeout)
       watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
     })
@@ -457,7 +456,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('watches globs added after they have been negated', function (done) {
+  it('watches globs added after they have been negated', (done) => {
     const GLOB = path.join(__dirname, '**/*.js')
     const EXCLUDED_PATH = '!' + CHANGED_FILE_PATH
     const INCLUDED_PATH = CHANGED_FILE_PATH
@@ -470,7 +469,7 @@ describe('glob-watcher', function () {
 
     const watcher = watch(globs)
 
-    watcher.once('change', function (filePath) {
+    watcher.once('change', (filePath) => {
       expect(filePath)
         .to.equal(INCLUDED_PATH)
 
@@ -483,7 +482,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('does not mutate glob array', function (done) {
+  it('does not mutate glob array', (done) => {
     const GLOB = path.join(__dirname, '**/*.js')
     const EXCLUDED_PATH = '!' + CHANGED_FILE_PATH
     const INCLUDED_PATH = CHANGED_FILE_PATH
@@ -496,7 +495,7 @@ describe('glob-watcher', function () {
 
     const watcher = watch(globs)
 
-    watcher.once('change', function () {
+    watcher.once('change', () => {
       expect(globs[0])
         .to.equal(GLOB)
 
@@ -515,7 +514,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('ignores one glob', function (done) {
+  it('ignores one glob', (done) => {
     let timeout = null
     const spy = sinon.spy(changeFile)
 
@@ -528,7 +527,7 @@ describe('glob-watcher', function () {
 
     watcher.on('error', done)
 
-    watcher.once('change', function (filePath) {
+    watcher.once('change', (filePath) => {
       if (timeout) clearTimeout(timeout)
       watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
     })
@@ -545,7 +544,7 @@ describe('glob-watcher', function () {
     WATCHERS.add(watcher)
   })
 
-  it.only('ignores several globs', function (done) {
+  it('ignores several globs', (done) => {
     let timeout = null
     const spy = sinon.spy(changeFile)
 
@@ -558,7 +557,7 @@ describe('glob-watcher', function () {
 
     watcher.on('error', done)
 
-    watcher.once('change', function (filePath) {
+    watcher.once('change', (filePath) => {
       if (timeout) clearTimeout(timeout)
       watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
     })
@@ -576,17 +575,17 @@ describe('glob-watcher', function () {
   })
 
   // https://github.com/gulpjs/glob-watcher/issues/46
-  xit('ignores globs in the current working directory when they are negated', function (done) {
+  it('ignores globs in the current working directory when they are negated', (done) => {
     let timeout = null
     const spy = sinon.spy(changeFile)
 
-    const globs = ['./fixtures/**', '!./fixtures/*.js']
+    const globs = ['./fixtures/**', '!./fixtures/changed.js']
 
     const watcher = watch(globs, { cwd: './test' })
 
     watcher.on('error', done)
 
-    watcher.once('change', function (filePath) {
+    watcher.once('change', (filePath) => {
       if (timeout) clearTimeout(timeout)
       watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
     })
@@ -604,7 +603,7 @@ describe('glob-watcher', function () {
   })
 
   // https://github.com/gulpjs/glob-watcher/issues/46
-  it.only('ignores globs in the current working directory when they are ignored', function (done) {
+  it('ignores globs in the current working directory when they are ignored', (done) => {
     let timeout = null
     const spy = sinon.spy(changeFile)
 
@@ -612,7 +611,7 @@ describe('glob-watcher', function () {
 
     watcher.on('error', done)
 
-    watcher.once('change', function (filePath) {
+    watcher.once('change', (filePath) => {
       if (timeout) clearTimeout(timeout)
       watcher.emit('error', new Error(`Observes change to ignored glob for file path ${filePath}`))
     })

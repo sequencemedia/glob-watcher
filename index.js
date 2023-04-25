@@ -7,6 +7,8 @@ const defaults = require('object.defaults/immutable')
 const isNegatedGlob = require('is-negated-glob')
 const anymatch = require('anymatch')
 const normalize = require('normalize-path')
+const { join } = require('path')
+const { nanoid } = require('nanoid')
 
 const defaultOpts = {
   delay: 200,
@@ -16,20 +18,18 @@ const defaultOpts = {
   queue: true
 }
 
-function listenerCount (ee, evtName) {
-  if (typeof ee.listenerCount === 'function') {
-    return ee.listenerCount(evtName)
+const SPARSE = nanoid()
+
+function listenerCount (eventEmitter, eventName) {
+  if (typeof eventEmitter.listenerCount === 'function') {
+    return eventEmitter.listenerCount(eventName)
   }
 
-  return ee.listeners(evtName).length
+  return eventEmitter.listeners(eventName).length
 }
 
-function hasErrorListener (ee) {
-  return listenerCount(ee, 'error') !== 0
-}
-
-function exists (val) {
-  return val != null
+function hasErrorListener (eventEmitter) {
+  return listenerCount(eventEmitter, 'error') !== 0
 }
 
 function watch (glob, options, cb) {
@@ -72,27 +72,44 @@ function watch (glob, options, cb) {
     }
   }
 
-  const toWatch = positives.filter(exists)
+  const toWatch = positives.filter(Boolean)
 
   function joinCwd (glob) {
-    if (glob && opt.cwd) {
-      return normalize(opt.cwd + '/' + glob)
+    if (opt.cwd) {
+      return join(normalize(opt.cwd), normalize(glob))
     }
 
-    return glob
+    return normalize(glob)
+  }
+
+  function toUnsparse (array) {
+    let i = 0
+    const j = array.length
+
+    for (i, j; i < j; i++) {
+      array[i] = array[i] ?? SPARSE
+    }
+
+    return array
   }
 
   // We only do add our custom `ignored` if there are some negative globs
   // TODO: I'm not sure how to test this
-  if (negatives.some(exists)) {
-    const normalizedPositives = positives.map(joinCwd)
-    const normalizedNegatives = negatives.map(joinCwd)
-    const shouldBeIgnored = function (path) {
+  if (negatives.some(Boolean)) {
+    const normalizedPositives = toUnsparse(positives.map(joinCwd))
+    const normalizedNegatives = toUnsparse(negatives.map(joinCwd))
+
+    function ignorePath (path) {
       const positiveMatch = anymatch(normalizedPositives, path, true)
       const negativeMatch = anymatch(normalizedNegatives, path, true)
+
       // If negativeMatch is -1, that means it was never negated
       if (negativeMatch === -1) {
         return false
+      }
+
+      if (positiveMatch === -1) {
+        return true
       }
 
       // If the negative is "less than" the positive, that means
@@ -100,8 +117,9 @@ function watch (glob, options, cb) {
       return negativeMatch < positiveMatch
     }
 
-    opt.ignored = [].concat(opt.ignored, shouldBeIgnored)
+    opt.ignored = [].concat(opt.ignored, ignorePath)
   }
+
   const watcher = chokidar.watch(toWatch, opt)
 
   function runComplete (err) {
