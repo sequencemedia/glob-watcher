@@ -1,23 +1,28 @@
 'use strict'
 
-const {
+import * as url from 'node:url'
+
+import {
   writeFileSync,
   unlinkSync
-} = require('node:fs')
+} from 'node:fs'
 
-const path = require('path')
+import path from 'path'
 
-const chai = require('chai')
+import chai from 'chai'
+import sinon from 'sinon'
+import sinonChai from 'sinon-chai'
+import { rimraf } from 'rimraf'
+import { mkdirp } from 'mkdirp'
+import through from 'through2'
+
+import watch from '../index.mjs'
+
+const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
+
 const { expect } = chai
-const sinon = require('sinon')
-const sinonChai = require('sinon-chai')
-const { rimraf } = require('rimraf')
-const { mkdirp } = require('mkdirp')
-const through = require('through2')
 
 chai.use(sinonChai)
-
-const watch = require('../')
 
 // Default delay on debounce
 const TIMEOUT = 200
