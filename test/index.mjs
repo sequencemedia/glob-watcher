@@ -1,5 +1,3 @@
-'use strict'
-
 import * as url from 'node:url'
 
 import {
@@ -9,18 +7,25 @@ import {
 
 import path from 'path'
 
-import chai from 'chai'
+import chai, {
+  expect
+} from 'chai'
 import sinon from 'sinon'
 import sinonChai from 'sinon-chai'
-import { rimraf } from 'rimraf'
-import { mkdirp } from 'mkdirp'
+
+import {
+  rimraf
+} from 'rimraf'
+
+import {
+  mkdirp
+} from 'mkdirp'
+
 import through from 'through2'
 
-import watch from '../index.mjs'
+import watch from '#glob-watcher'
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
-
-const { expect } = chai
 
 chai.use(sinonChai)
 

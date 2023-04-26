@@ -1,7 +1,6 @@
 {
   "name": "@sequencemedia/glob-watcher",
   "version": "1.0.0",
-  "type": "module",
   "description": "Watch globs and execute a function upon change, with intelligent defaults for debouncing and queueing.",
   "keywords": [
     "watch",
@@ -11,12 +10,15 @@
     "debounce",
     "callback"
   ],
-  "main": "./index.js",
-  "author": "Gulp Team <team@gulpjs.com> (http://gulpjs.com/)",
-  "contributors": [],
+  "main": "./index.mjs",
+  "type": "module",
+  "author": "Jonathan Perry for Sequence Media Limited <sequencemedia@sequencemedia.net>",
+  "contributors": [
+    "Gulp Team <team@gulpjs.com> (http://gulpjs.com/)"
+  ],
   "license": "MIT",
   "engines": {
-    "node": ">= 0.10"
+    "node": ">=18.5.0"
   },
   "repository": "sequencemedia/glob-watcher",
   "scripts": {
@@ -50,6 +52,10 @@
     "through2": "^4.0.2"
   },
   "files": [
-    "index.js"
-  ]
+    "index.mjs",
+    "LICENSE"
+  ],
+  "imports": {
+    "#glob-watcher": "./index.mjs"
+  }
 }
