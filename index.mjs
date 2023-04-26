@@ -1,3 +1,5 @@
+import crypto from 'node:crypto'
+
 import chokidar from 'chokidar'
 import debounce from 'just-debounce'
 import asyncDone from 'async-done'
@@ -6,7 +8,6 @@ import isNegatedGlob from 'is-negated-glob'
 import anymatch from 'anymatch'
 import normalize from 'normalize-path'
 import { join } from 'path'
-import { nanoid } from 'nanoid'
 
 const DEFAULT_OPTIONS = {
   delay: 200,
@@ -16,7 +17,7 @@ const DEFAULT_OPTIONS = {
   queue: true
 }
 
-const SPARSE = nanoid()
+const SPARSE = crypto.randomUUID()
 
 function listenerCount (eventEmitter, eventName) {
   if (typeof eventEmitter.listenerCount === 'function') {
