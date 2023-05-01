@@ -1,7 +1,7 @@
 {
   "name": "@sequencemedia/glob-watcher",
   "version": "1.0.0",
-  "description": "Watch globs and execute a function upon change, with intelligent defaults for debouncing and queueing.",
+  "description": "The file system watcher for Gulp",
   "keywords": [
     "watch",
     "glob",
