@@ -1,4 +1,7 @@
 import crypto from 'node:crypto'
+import {
+  join
+} from 'node:path'
 
 import chokidar from 'chokidar'
 import debounce from 'just-debounce'
@@ -7,7 +10,6 @@ import defaults from 'object.defaults/immutable.js'
 import isNegatedGlob from 'is-negated-glob'
 import anymatch from 'anymatch'
 import normalize from 'normalize-path'
-import { join } from 'path'
 
 const DEFAULT_OPTIONS = {
   delay: 200,
@@ -31,7 +33,7 @@ function hasErrorListener (eventEmitter) {
   return listenerCount(eventEmitter, 'error') !== 0
 }
 
-function watch (glob, options, cb) {
+export default function watch (glob, options, cb) {
   if (typeof options === 'function') {
     cb = options
     options = {}
@@ -162,5 +164,3 @@ function watch (glob, options, cb) {
 
   return watcher
 }
-
-export default watch
