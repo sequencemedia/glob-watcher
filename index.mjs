@@ -42,16 +42,20 @@ function getToNormalizedPath (basePath) {
 
 function getIsPathIgnored (ignoredPaths, watchedPaths) {
   /**
-   * `anymatch` returns an index for the first path to a path
+   * `anymatch` returns an index for the first match of a path,
    *  but the globs are supplied in "general to specific" order
-   *  which means `anymatch` will never reach the later globs
+   *  which means `anymatch` will likely never reach globs later
+   *  in the list
    *
-   *  We reverse the arrays to make them "specific to general",
-   *  so when testing the indexes "less than" means after and
-   *  "more than" means before in the original order
+   *  We reverse the arrays to make them "specific to general" so,
+   *  when testing the indexes, "less than" means after and
+   *  "more than" means before (which is the opposite of their
+   *  original order)
    *
-   *  The result is the same: Did the user un-ignore a specific
-   *  path after they ignored it with something more general?
+   *    - Did the user watch a specific path after they ignored
+   *      it with a more general glob?
+   *    - Did the user ignore a specific path after they watched
+   *      it with a more general glob?
    */
   ignoredPaths.reverse()
   watchedPaths.reverse()
