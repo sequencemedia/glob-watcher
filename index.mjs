@@ -32,7 +32,7 @@ function toUnsparse (array) {
   return array
 }
 
-function getNormalizer (basePath) {
+function getToNormalizedPath (basePath) {
   return (
     basePath
       ? (glob) => join(normalizePath(basePath), normalizePath(glob))
@@ -74,9 +74,9 @@ function getIsPathIgnored (ignoredPaths, watchedPaths) {
 }
 
 function getIgnored (basePath, ignored = [], ignoredGlobs, watchedGlobs) {
-  const normalizer = getNormalizer(basePath)
-  const ignoredPaths = toUnsparse(ignoredGlobs.map(normalizer))
-  const watchedPaths = toUnsparse(watchedGlobs.map(normalizer))
+  const toNormalized = getToNormalizedPath(basePath)
+  const ignoredPaths = toUnsparse(ignoredGlobs.map(toNormalized))
+  const watchedPaths = toUnsparse(watchedGlobs.map(toNormalized))
 
   return [].concat(ignored, getIsPathIgnored(ignoredPaths, watchedPaths))
 }
