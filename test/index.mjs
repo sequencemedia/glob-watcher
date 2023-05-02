@@ -106,7 +106,7 @@ describe('glob-watcher', () => {
     /**
      *  Does not require resolved path
      */
-    const watcher = watch('./test/**/*.js', (next) => {
+    const watcher = watch('./test/**/*.js', (next) => { // , path, n) => {
       next()
       done()
     })

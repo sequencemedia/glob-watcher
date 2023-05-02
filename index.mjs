@@ -41,26 +41,34 @@ function getNormalizer (basePath) {
 }
 
 function getIsPathIgnored (ignoredPaths, watchedPaths) {
+  /**
+   * `anymatch` returns an index for the first path to a path
+   *  but the globs are supplied in "general to specific" order
+   *  which means `anymatch` will never reach the later globs
+   *
+   *  We reverse the arrays to make them "specific to general",
+   *  so when testing the indexes "less than" means after and
+   *  "more than" means before in the original order
+   *
+   *  The result is the same: Did the user un-ignore a specific
+   *  path after they ignored it with something more general?
+   */
   ignoredPaths.reverse()
   watchedPaths.reverse()
 
   return function isPathIgnored (path) {
     const ignoredIndex = anymatch(ignoredPaths, path, true)
-
     if (ignoredIndex === -1) { // `path` was never negated
       return false
     }
 
     const watchedIndex = anymatch(watchedPaths, path, true)
-
     if (watchedIndex === -1) {
       return true
     }
 
-    // If `ignoredIndex` is less than `watchedIndex` then
-    // the pattern appears earlier in the glob array (which
-    // means later before it was reversed): so we should
-    // ignore the path
+    // In the original glob order, "more than" would mean after,
+    // but these arrays are reversed so instead we use "less than"
     return ignoredIndex < watchedIndex
   }
 }
@@ -85,31 +93,38 @@ function hasErrorListener (eventEmitter) {
   return getListenerCount(eventEmitter, 'error') !== 0
 }
 
-function getDebounced (delay, queue, watcher, done) {
-  function onRunEnd (e) {
-    isRunning = false
-
-    if (e && hasErrorListener(watcher)) {
-      watcher.emit('error', e)
+function getEventHandler (delay, queue, watcher, done) {
+  function getOnRunEnd (path, n, watcher) {
+    function handleError (e) {
+      if (hasErrorListener(watcher)) watcher.emit('error', e)
     }
 
-    // If we have a run queued, start onRunStart again
-    if (isQueued) {
-      isQueued = false
-      onRunStart()
+    return function onRunEnd (e) {
+      if (e) handleError(e)
+
+      if (isQueued) {
+        isQueued = false
+        isRunning = true
+
+        /**
+         * Run again for the same path but increment the run count
+         */
+        onRunStart(path, n + 1)
+      }
     }
   }
 
-  function onRunStart () {
+  function onRunStart (path, n = 1) {
     if (isRunning) {
-      if (queue) {
-        isQueued = true
-      }
-      return
+      if (queue) isQueued = true
+    } else {
+      /**
+       *  Let `asyncDone` resolve this run then invoke `done`
+       *
+       *  If there is a queue `onRunEnd` will re-run `onRunStart`
+       */
+      asyncDone((...args) => done(...args, path, n), getOnRunEnd(path, n, watcher))
     }
-
-    isRunning = true
-    asyncDone(done, onRunEnd)
   }
 
   let isQueued = false
@@ -136,8 +151,8 @@ export default function watch (glob, options, done) {
     glob = [...glob] // Duplicate the array so that it can be mutated
   }
 
-  // Use sparse arrays to keep track of each glob's index in the
-  // original globs array
+  // Use sparse arrays to keep track of each glob's position in the
+  // original glob array
   const ignoredGlobs = new Array(glob.length)
   const watchedGlobs = new Array(glob.length)
 
@@ -155,25 +170,25 @@ export default function watch (glob, options, done) {
       }
     })
 
-  // Add `ignored` to chokidar options only if there are any ...
   if (ignoredGlobs.some(Boolean)) {
     config.ignored = getIgnored(config.cwd, config.ignored, ignoredGlobs, watchedGlobs)
   }
 
-  const watched = watchedGlobs.filter(Boolean)
-  const watcher = chokidar.watch(watched, config)
+  if (watchedGlobs.some(Boolean)) {
+    const watched = watchedGlobs.filter(Boolean)
+    const watcher = chokidar.watch(watched, config)
 
-  let handleEvent
-  if (done instanceof Function) {
-    handleEvent = getDebounced(config.delay, config.queue, watcher, done) // debounce(onRunStart, delay)
+    if (done instanceof Function) {
+      const handleEvent = getEventHandler(config.delay, config.queue, watcher, done)
+
+      config.events
+        .forEach((eventName) => {
+          watcher.on(eventName, handleEvent)
+        })
+    }
+
+    return watcher
   }
 
-  if (handleEvent) {
-    config.events
-      .forEach((eventName) => {
-        watcher.on(eventName, handleEvent)
-      })
-  }
-
-  return watcher
+  throw new Error('Nothing to watch')
 }
