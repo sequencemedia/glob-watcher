@@ -9,7 +9,7 @@ import asyncDone from 'async-done'
 import defaults from 'object.defaults/immutable.js'
 import isNegatedGlob from 'is-negated-glob'
 import anymatch from 'anymatch'
-import normalize from 'normalize-path'
+import normalizePath from 'normalize-path'
 
 const DEFAULT_OPTIONS = {
   delay: 200,
@@ -21,8 +21,60 @@ const DEFAULT_OPTIONS = {
 
 const SPARSE = crypto.randomUUID()
 
-function listenerCount (eventEmitter, eventName) {
-  if (typeof eventEmitter.listenerCount === 'function') {
+function toUnsparse (array) {
+  let i = 0
+  const j = array.length
+
+  for (i, j; i < j; i++) {
+    array[i] = array[i] ?? SPARSE
+  }
+
+  return array
+}
+
+function getNormalizer (basePath) {
+  return (
+    basePath
+      ? (glob) => join(normalizePath(basePath), normalizePath(glob))
+      : (glob) => normalizePath(glob)
+  )
+}
+
+function getIsPathIgnored (ignoredPaths, watchedPaths) {
+  ignoredPaths.reverse()
+  watchedPaths.reverse()
+
+  return function isPathIgnored (path) {
+    const ignoredIndex = anymatch(ignoredPaths, path, true)
+
+    if (ignoredIndex === -1) { // `path` was never negated
+      return false
+    }
+
+    const watchedIndex = anymatch(watchedPaths, path, true)
+
+    if (watchedIndex === -1) {
+      return true
+    }
+
+    // If `ignoredIndex` is less than `watchedIndex` then
+    // the pattern appears earlier in the glob array (which
+    // means later before it was reversed): so we should
+    // ignore the path
+    return ignoredIndex < watchedIndex
+  }
+}
+
+function getIgnored (basePath, ignored = [], ignoredGlobs, watchedGlobs) {
+  const normalizer = getNormalizer(basePath)
+  const ignoredPaths = toUnsparse(ignoredGlobs.map(normalizer))
+  const watchedPaths = toUnsparse(watchedGlobs.map(normalizer))
+
+  return [].concat(ignored, getIsPathIgnored(ignoredPaths, watchedPaths))
+}
+
+function getListenerCount (eventEmitter, eventName) {
+  if (eventEmitter.listenerCount instanceof Function) {
     return eventEmitter.listenerCount(eventName)
   }
 
@@ -30,136 +82,97 @@ function listenerCount (eventEmitter, eventName) {
 }
 
 function hasErrorListener (eventEmitter) {
-  return listenerCount(eventEmitter, 'error') !== 0
+  return getListenerCount(eventEmitter, 'error') !== 0
 }
 
-export default function watch (glob, options, cb) {
-  if (typeof options === 'function') {
-    cb = options
-    options = {}
-  }
+function getDebounced (delay, queue, watcher, done) {
+  function onRunEnd (e) {
+    isRunning = false
 
-  const opts = defaults(options, DEFAULT_OPTIONS)
+    if (e && hasErrorListener(watcher)) {
+      watcher.emit('error', e)
+    }
 
-  if (!Array.isArray(opts.events)) {
-    opts.events = [opts.events]
-  }
-
-  if (Array.isArray(glob)) {
-    // We slice so we don't mutate the passed globs array
-    glob = glob.slice()
-  } else {
-    glob = [glob]
-  }
-
-  let queued = false
-  let running = false
-
-  // These use sparse arrays to keep track of the index in the
-  // original globs array
-  const positives = new Array(glob.length)
-  const negatives = new Array(glob.length)
-
-  // Reverse the glob here so we don't end up with a positive
-  // and negative glob in position 0 after a reverse
-  glob.reverse().forEach(sortGlobs)
-
-  function sortGlobs (globString, index) {
-    const result = isNegatedGlob(globString)
-    if (result.negated) {
-      negatives[index] = result.pattern
-    } else {
-      positives[index] = result.pattern
+    // If we have a run queued, start onRunStart again
+    if (isQueued) {
+      isQueued = false
+      onRunStart()
     }
   }
 
-  const toWatch = positives.filter(Boolean)
-
-  function joinCwd (glob) {
-    if (opts.cwd) {
-      return join(normalize(opts.cwd), normalize(glob))
-    }
-
-    return normalize(glob)
-  }
-
-  function toUnsparse (array) {
-    let i = 0
-    const j = array.length
-
-    for (i, j; i < j; i++) {
-      array[i] = array[i] ?? SPARSE
-    }
-
-    return array
-  }
-
-  // We only do add our custom `ignored` if there are some negative globs
-  // TODO: I'm not sure how to test this
-  if (negatives.some(Boolean)) {
-    const normalizedPositives = toUnsparse(positives.map(joinCwd))
-    const normalizedNegatives = toUnsparse(negatives.map(joinCwd))
-
-    function ignorePath (path) {
-      const positiveMatch = anymatch(normalizedPositives, path, true)
-      const negativeMatch = anymatch(normalizedNegatives, path, true)
-
-      // If negativeMatch is -1, that means it was never negated
-      if (negativeMatch === -1) {
-        return false
-      }
-
-      if (positiveMatch === -1) {
-        return true
-      }
-
-      // If the negative is "less than" the positive, that means
-      // it came later in the glob array before we reversed them
-      return negativeMatch < positiveMatch
-    }
-
-    opts.ignored = [].concat(opts.ignored, ignorePath)
-  }
-
-  const watcher = chokidar.watch(toWatch, opts)
-
-  function runComplete (err) {
-    running = false
-
-    if (err && hasErrorListener(watcher)) {
-      watcher.emit('error', err)
-    }
-
-    // If we have a run queued, start onChange again
-    if (queued) {
-      queued = false
-      onChange()
-    }
-  }
-
-  function onChange () {
-    if (running) {
-      if (opts.queue) {
-        queued = true
+  function onRunStart () {
+    if (isRunning) {
+      if (queue) {
+        isQueued = true
       }
       return
     }
 
-    running = true
-    asyncDone(cb, runComplete)
+    isRunning = true
+    asyncDone(done, onRunEnd)
   }
 
-  let fn
-  if (typeof cb === 'function') {
-    fn = debounce(onChange, opts.delay)
+  let isQueued = false
+  let isRunning = false
+
+  return debounce(onRunStart, delay)
+}
+
+export default function watch (glob, options, done) {
+  if (options instanceof Function) {
+    done = options
+    options = {}
   }
 
-  function watchEvent (eventName) {
-    watcher.on(eventName, fn)
+  const config = defaults(options, DEFAULT_OPTIONS)
+
+  if (!Array.isArray(config.events)) {
+    config.events = [config.events]
   }
 
-  if (fn) {
-    opts.events.forEach(watchEvent)
+  if (!Array.isArray(glob)) {
+    glob = [glob]
+  } else {
+    glob = [...glob] // Duplicate the array so that it can be mutated
+  }
+
+  // Use sparse arrays to keep track of each glob's index in the
+  // original globs array
+  const ignoredGlobs = new Array(glob.length)
+  const watchedGlobs = new Array(glob.length)
+
+  glob
+    .forEach((glob, i) => {
+      const {
+        negated,
+        pattern
+      } = isNegatedGlob(glob)
+
+      if (negated) {
+        ignoredGlobs[i] = pattern
+      } else {
+        watchedGlobs[i] = pattern
+      }
+    })
+
+  // Add `ignored` to chokidar options only if there are any ...
+  if (ignoredGlobs.some(Boolean)) {
+    config.ignored = getIgnored(config.cwd, config.ignored, ignoredGlobs, watchedGlobs)
+  }
+
+  const watched = watchedGlobs.filter(Boolean)
+  const watcher = chokidar.watch(watched, config)
+
+  let handleEvent
+  if (done instanceof Function) {
+    handleEvent = getDebounced(config.delay, config.queue, watcher, done) // debounce(onRunStart, delay)
+  }
+
+  if (handleEvent) {
+    config.events
+      .forEach((eventName) => {
+        watcher.on(eventName, handleEvent)
+      })
   }
 
   return watcher
