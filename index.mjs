@@ -71,16 +71,18 @@ function getIsPathIgnored (ignoredPaths, watchedPaths) {
       return true
     }
 
-    // In the original glob order, "more than" would mean after,
-    // but these arrays are reversed so instead we use "less than"
+    /**
+     *  In the original glob order, "more than" would mean after,
+     *  but these arrays are reversed so instead we use "less than"
+     */
     return ignoredIndex < watchedIndex
   }
 }
 
 function getIgnored (basePath, ignored = [], ignoredGlobs, watchedGlobs) {
-  const toNormalized = getToNormalizedPath(basePath)
-  const ignoredPaths = toUnsparse(ignoredGlobs.map(toNormalized))
-  const watchedPaths = toUnsparse(watchedGlobs.map(toNormalized))
+  const toNormalizedPath = getToNormalizedPath(basePath)
+  const ignoredPaths = toUnsparse(ignoredGlobs.map(toNormalizedPath))
+  const watchedPaths = toUnsparse(watchedGlobs.map(toNormalizedPath))
 
   return [].concat(ignored, getIsPathIgnored(ignoredPaths, watchedPaths))
 }
@@ -155,8 +157,10 @@ export default function watch (glob, options, done) {
     glob = [...glob] // Duplicate the array so that it can be mutated
   }
 
-  // Use sparse arrays to keep track of each glob's position in the
-  // original glob array
+  /**
+   *  Sparse arrays track each glob's position in the original
+   *  glob array
+   */
   const ignoredGlobs = new Array(glob.length)
   const watchedGlobs = new Array(glob.length)
 
