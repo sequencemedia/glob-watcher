@@ -3,7 +3,11 @@ import {
   unlinkSync
 } from 'node:fs'
 
-import path from 'path'
+import path from 'node:path'
+
+import {
+  Transform
+} from 'node:stream'
 
 import chai, {
   expect
@@ -19,13 +23,11 @@ import {
   mkdirp
 } from 'mkdirp'
 
-import through from 'through2'
-
 import watch from '#glob-watcher'
 
 chai.use(sinonChai)
 
-const TIMEOUT = 200 // Default delay on debounce
+const DEBOUNCE = 200 // Default delay on debounce
 const WATCHERS = new Set()
 
 describe('glob-watcher', () => {
@@ -210,7 +212,7 @@ describe('glob-watcher', () => {
 
     const spy = sinon.stub()
       .onFirstCall().callsFake((next) => {
-        setTimeout(next, TIMEOUT * 2)
+        setTimeout(next, DEBOUNCE * 2)
       })
       .onSecondCall().callsFake((next) => {
         while (timeouts.length) clearTimeout(timeouts.shift())
@@ -223,7 +225,7 @@ describe('glob-watcher', () => {
     const watcher = watch('./test/**/*.js', spy)
 
     watcher.on('ready', () => {
-      for (let i = 0, j = 3; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * TIMEOUT) * 2))
+      for (let i = 0, j = 3; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * DEBOUNCE) * 2))
     })
 
     WATCHERS.add(watcher)
@@ -236,7 +238,7 @@ describe('glob-watcher', () => {
       .onFirstCall().callsFake((next) => {
         next()
 
-        const stream = through()
+        const stream = new Transform()
         setImmediate(() => stream.end())
         return stream
       })
@@ -251,7 +253,7 @@ describe('glob-watcher', () => {
     const watcher = watch('./test/**/*.js', spy)
 
     watcher.on('ready', () => {
-      for (let i = 0, j = 3; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * TIMEOUT) * 2))
+      for (let i = 0, j = 3; i < j; i = i + 1) timeouts.push(setTimeout(changeFile, ((i + 1) * DEBOUNCE) * 2))
     })
 
     WATCHERS.add(watcher)
