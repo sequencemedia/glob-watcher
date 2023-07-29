@@ -9,7 +9,8 @@ import {
   Transform
 } from 'node:stream'
 
-import chai, {
+import {
+  use,
   expect
 } from 'chai'
 import sinon from 'sinon'
@@ -25,7 +26,7 @@ import {
 
 import watch from '#glob-watcher'
 
-chai.use(sinonChai)
+use(sinonChai)
 
 const DEBOUNCE = 200 // Default delay on debounce
 const WATCHERS = new Set()
