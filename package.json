@@ -43,7 +43,7 @@
   "devDependencies": {
     "@babel/eslint-parser": "^7.23.9",
     "@babel/preset-env": "^7.23.9",
-    "@sequencemedia/hooks": "^1.0.474",
+    "@sequencemedia/hooks": "^1.0.475",
     "@sequencemedia/sinon-chai": "^0.0.6",
     "chai": "^5.0.3",
     "eslint": "^8.56.0",
