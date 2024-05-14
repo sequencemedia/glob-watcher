@@ -52,7 +52,7 @@
     "mkdirp": "^3.0.1",
     "mocha": "^10.4.0",
     "rimraf": "^5.0.7",
-    "sinon": "^17.0.2"
+    "sinon": "^17.0.1"
   },
   "files": [
     "index.mjs",
