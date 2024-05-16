@@ -43,7 +43,7 @@
   "devDependencies": {
     "@babel/eslint-parser": "^7.24.5",
     "@babel/preset-env": "^7.24.5",
-    "@sequencemedia/hooks": "^1.0.490",
+    "@sequencemedia/hooks": "^1.0.491",
     "@sequencemedia/sinon-chai": "^0.0.6",
     "chai": "^5.1.1",
     "eslint": "8.57.0",
@@ -52,7 +52,7 @@
     "mkdirp": "^3.0.1",
     "mocha": "^10.4.0",
     "rimraf": "^5.0.7",
-    "sinon": "^17.0.1"
+    "sinon": "^18.0.0"
   },
   "files": [
     "index.mjs",
