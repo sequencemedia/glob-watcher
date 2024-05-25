@@ -41,8 +41,8 @@
     "object.defaults": "^1.1.0"
   },
   "devDependencies": {
-    "@babel/eslint-parser": "^7.24.5",
-    "@babel/preset-env": "^7.24.5",
+    "@babel/eslint-parser": "^7.24.6",
+    "@babel/preset-env": "^7.24.6",
     "@sequencemedia/hooks": "^1.0.491",
     "@sequencemedia/sinon-chai": "^0.0.6",
     "chai": "^5.1.1",
