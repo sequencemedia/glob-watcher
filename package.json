@@ -45,7 +45,7 @@
     "@babel/preset-env": "^7.25.0",
     "@sequencemedia/eslint-config-standard": "^0.0.17",
     "@sequencemedia/hooks": "^1.0.507",
-    "@sequencemedia/sinon-chai": "^0.0.10",
+    "@sequencemedia/sinon-chai": "^0.0.12",
     "chai": "^5.1.1",
     "eslint": "^9.8.0",
     "globals": "^15.8.0",
