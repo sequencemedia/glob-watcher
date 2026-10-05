@@ -1,6 +1,6 @@
 {
   "name": "@sequencemedia/glob-watcher",
-  "version": "1.0.370",
+  "version": "1.0.371",
   "description": "The file system watcher for Gulp",
   "keywords": [
     "watch",
