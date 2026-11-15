@@ -213,15 +213,15 @@ describe('glob-watcher', () => {
 
     const spy = sinon.stub()
       .onFirstCall().callsFake((next) => {
-        setTimeout(next, DEBOUNCE * 2)
-      })
+      setTimeout(next, DEBOUNCE * 2)
+    })
       .onSecondCall().callsFake((next) => {
-        while (timeouts.length) clearTimeout(timeouts.shift())
+      while (timeouts.length) clearTimeout(timeouts.shift())
 
-        next()
+      next()
 
-        done()
-      })
+      done()
+    })
 
     const watcher = watch('./test/**/*.js', spy)
 
@@ -237,19 +237,19 @@ describe('glob-watcher', () => {
 
     const spy = sinon.stub()
       .onFirstCall().callsFake((next) => {
-        next()
+      next()
 
-        const stream = new Transform()
-        setImmediate(() => stream.end())
-        return stream
-      })
+      const stream = new Transform()
+      setImmediate(() => stream.end())
+      return stream
+    })
       .onSecondCall().callsFake((next) => {
-        while (timeouts.length) clearTimeout(timeouts.shift())
+      while (timeouts.length) clearTimeout(timeouts.shift())
 
-        next()
+      next()
 
-        done()
-      })
+      done()
+    })
 
     const watcher = watch('./test/**/*.js', spy)
 
@@ -296,20 +296,20 @@ describe('glob-watcher', () => {
   it('changes `queue` default', (done) => {
     const spy = sinon.stub()
       .onFirstCall().callsFake((next) => {
-        next()
+      next()
 
-        changeFile()
-      })
+      changeFile()
+    })
       .onSecondCall().callsFake((next) => {
-        next()
+      next()
 
-        changeFile()
-      })
+      changeFile()
+    })
       .onThirdCall().callsFake((next) => {
-        next()
+      next()
 
-        done()
-      })
+      done()
+    })
 
     const watcher = watch('./test/**/*.js', { queue: false }, spy)
 
@@ -324,18 +324,18 @@ describe('glob-watcher', () => {
 
     const spy = sinon.stub()
       .onFirstCall().callsFake((next) => {
-        next()
-      })
+      next()
+    })
       .onSecondCall().callsFake((next) => {
-        next()
-      })
+      next()
+    })
       .onThirdCall().callsFake((next) => {
-        while (timeouts.length) clearTimeout(timeouts.shift())
+      while (timeouts.length) clearTimeout(timeouts.shift())
 
-        next()
+      next()
 
-        done()
-      })
+      done()
+    })
 
     // The delay to wait before triggering the handler
     const watcher = watch('./test/**/*.js', { delay }, spy)
@@ -411,20 +411,20 @@ describe('glob-watcher', () => {
 
     const spy = sinon.stub()
       .onFirstCall().callsFake((next) => {
-        next()
+      next()
 
-        createFile()
-      })
+      createFile()
+    })
       .onSecondCall().callsFake((next) => {
-        next()
+      next()
 
-        removeFile()
-      })
+      removeFile()
+    })
       .onThirdCall().callsFake((next) => {
-        next()
+      next()
 
-        done()
-      })
+      done()
+    })
 
     /**
      *  Does not require resolved path
